@@ -8,6 +8,7 @@ import info.metadude.android.eventfahrplan.commons.livedata.SingleLiveEvent
 import info.metadude.android.eventfahrplan.commons.logging.Logging
 import info.metadude.android.eventfahrplan.commons.temporal.Moment
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import nerd.tuxmobil.fahrplan.congress.alarms.AlarmServices
@@ -61,6 +62,7 @@ internal class FahrplanViewModel(
         updateUncanceledSessions()
     }
 
+    // TODO Wirklich nicht hier?
     private fun updateUncanceledSessions() {
         launch {
             repository.uncanceledSessionsForDayIndex.collect { scheduleData ->
@@ -126,7 +128,9 @@ internal class FahrplanViewModel(
         }
     }
 
+    //TODO Hier
     fun fillTimes(nowMoment: Moment, normalizedBoxHeight: Int) {
+        //TODO Wenn komplet auskommentiert, trotzdem langsam
         launch {
             repository.uncanceledSessionsForDayIndex.collect { scheduleData ->
                 val sessions = scheduleData.allSessions
@@ -239,7 +243,7 @@ internal class FahrplanViewModel(
     }
 
     private fun launch(block: suspend CoroutineScope.() -> Unit) {
-        viewModelScope.launch(executionContext.database, block = block)
+        viewModelScope.launch(executionContext.database, block = block) //TODO Globalscope does not help
     }
 
 }

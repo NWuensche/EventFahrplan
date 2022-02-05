@@ -34,11 +34,13 @@ import androidx.core.widget.NestedScrollView.OnScrollChangeListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.LayoutParams
 import info.metadude.android.eventfahrplan.commons.logging.Logging
 import info.metadude.android.eventfahrplan.commons.temporal.Moment
+import kotlinx.coroutines.*
 import nerd.tuxmobil.fahrplan.congress.BuildConfig
 import nerd.tuxmobil.fahrplan.congress.MyApp
 import nerd.tuxmobil.fahrplan.congress.R
@@ -159,11 +161,24 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         inflater = view.context.getLayoutInflater()
     }
 
+    var x = 0
     private fun observeViewModel() {
         viewModel.fahrplanParameter.observe(viewLifecycleOwner) { (scheduleData, numDays, dayIndex, menuEntries) ->
-            menuEntries?.let { buildNavigationMenu(it, numDays) }
+            //TODO Hier drin, das auf mainthread
+            //TODO Wenn das auskommentiert, dann schnell
+            if (x == 0) {
+                menuEntries?.let { buildNavigationMenu(it, numDays) }
+                viewModel.fillTimes(Moment.now(), getNormalizedBoxHeight())
+                viewDay(scheduleData, numDays, dayIndex)
+                x++
+            } else {
+                menuEntries?.let { buildNavigationMenu(it, numDays) }
+                viewModel.fillTimes(Moment.now(), getNormalizedBoxHeight()) //TODO Hakt ein bisschen
+                viewDay(scheduleData, numDays, dayIndex) //TODO Und das extrem langsam
+            }
+            /*menuEntries?.let { buildNavigationMenu(it, numDays) }
             viewModel.fillTimes(Moment.now(), getNormalizedBoxHeight())
-            viewDay(scheduleData, numDays, dayIndex)
+            viewDay(scheduleData, numDays, dayIndex)*/
         }
         viewModel.fahrplanEmptyParameter.observe(viewLifecycleOwner) { (scheduleVersion) ->
             val errorMessage = errorMessageFactory.getMessageForEmptySchedule(scheduleVersion)
@@ -218,6 +233,7 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
     /**
      * Updates the session data in the schedule view.
      */
+    var x2 = 0
     private fun viewDay(scheduleData: ScheduleData, numDays: Int, dayIndex: Int) {
         val layoutRoot = requireView()
         val horizontalScroller = layoutRoot.requireViewByIdCompat<HorizontalSnapScrollView>(R.id.horizScroller)
@@ -228,8 +244,15 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         val roomScroller = layoutRoot.requireViewByIdCompat<HorizontalScrollView>(R.id.roomScroller)
         val roomTitlesRowLayout = roomScroller.getChildAt(0) as LinearLayout
         val columnWidth = horizontalScroller.columnWidth
-        addRoomTitleViews(roomTitlesRowLayout, columnWidth, scheduleData.roomNames)
-        addRoomColumns(horizontalScroller, columnWidth, scheduleData)
+        if (x2 == 0) {
+            addRoomTitleViews(roomTitlesRowLayout, columnWidth, scheduleData.roomNames)
+            addRoomColumns(horizontalScroller, columnWidth, scheduleData)
+            x2++
+        } else {
+            addRoomTitleViews(roomTitlesRowLayout, columnWidth, scheduleData.roomNames)
+            addRoomColumns(horizontalScroller, columnWidth, scheduleData) //TODO Das ist lahm
+        }
+
 
         MainActivity.instance.shouldScheduleScrollToCurrentTimeSlot {
             if (!viewModel.preserveVerticalScrollPosition) {
@@ -253,38 +276,50 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
      * (which is a row layout) of the given [horizontalScroller] layout.
      * Previously added child views are removed.
      */
+    var x3 = 0
     private fun addRoomColumns(
         horizontalScroller: HorizontalSnapScrollView,
         columnWidth: Int,
         scheduleData: ScheduleData
     ) {
-        val columnsLayout = horizontalScroller.getChildAt(0) as LinearLayout
-        // TODO Optimization: Track room names and check if they can be re-used with the updated scheduleData
-        columnsLayout.removeAllViews()
-        val boxHeight = getNormalizedBoxHeight()
-        val layoutCalculator = LayoutCalculator(boxHeight)
-        val context = horizontalScroller.context
-        val roomDataList = scheduleData.roomDataList
-        val conference = Conference.ofSessions(scheduleData.allSessions)
-        for (roomIndex in roomDataList.indices) {
-            val roomData = roomDataList[roomIndex]
-            val layoutParamsBySession = layoutCalculator.calculateLayoutParams(roomData, conference)
-            val columnRecyclerView = RecyclerView(context).apply {
-                setHasFixedSize(true)
-                setFadingEdgeLength(0)
-                isNestedScrollingEnabled = false // enables flinging
-                layoutManager = LinearLayoutManager(context)
-                layoutParams = LayoutParams(columnWidth, WRAP_CONTENT)
-            }
-            val roomSessions = roomData.sessions
-            val adapter = SessionViewColumnAdapter(
-                sessions = roomSessions,
-                layoutParamsBySession = layoutParamsBySession,
-                drawer = sessionViewDrawer,
-                eventsHandler = this
-            )
-            columnRecyclerView.adapter = adapter
-            columnsLayout.addView(columnRecyclerView)
+        val x2 = this
+        viewModel.viewModelScope.launch(Dispatchers.Default) {
+            val columnsLayout = horizontalScroller.getChildAt(0) as LinearLayout
+            // TODO Optimization: Track room names and check if they can be re-used with the updated scheduleData
+            val x = launch(Dispatchers.Main) { columnsLayout.removeAllViews() }
+            val boxHeight = getNormalizedBoxHeight()
+            val layoutCalculator = LayoutCalculator(boxHeight)
+            val context = horizontalScroller.context
+            val roomDataList = scheduleData.roomDataList
+            val conference = Conference.ofSessions(scheduleData.allSessions)
+            for (roomIndex in roomDataList.indices) {
+                val roomData = roomDataList[roomIndex]
+                val layoutParamsBySession = layoutCalculator.calculateLayoutParams(roomData, conference)
+                val columnRecyclerView = RecyclerView(context).apply {
+                    setHasFixedSize(true)
+                    setFadingEdgeLength(0)
+                    isNestedScrollingEnabled = false // enables flinging
+                    layoutManager = LinearLayoutManager(context)
+                    layoutParams = LayoutParams(columnWidth, WRAP_CONTENT)
+                }
+                val roomSessions = roomData.sessions
+                val adapter = SessionViewColumnAdapter(
+                    sessions = roomSessions,
+                    layoutParamsBySession = layoutParamsBySession,
+                    drawer = sessionViewDrawer,
+                    eventsHandler = x2
+                )
+                columnRecyclerView.adapter = adapter
+                /*if (x3 <= 10) {
+                    columnsLayout.addView(columnRecyclerView)
+                    x3++
+                }*/
+                x.join()
+                withContext(Dispatchers.Main) {
+                    columnsLayout.addView(columnRecyclerView)
+                }
+        }
+
         }
     }
 
@@ -320,6 +355,39 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
             }
             roomTitlesRowLayout.addView(roomTitle)
         }
+
+        /*TODO bringt nixviewModel.viewModelScope.launch(Dispatchers.Default) {
+    val x = async(Dispatchers.Main) { roomTitlesRowLayout.removeAllViews() }
+    val titleTextSize = resources.getInteger(R.integer.room_title_size).toFloat()
+    val params = LinearLayout.LayoutParams(columnWidth, WRAP_CONTENT, 1f).apply {
+        gravity = CENTER
+    }
+    val paddingRight = sessionPadding
+    val context = roomTitlesRowLayout.context
+    val titleTextColor = ContextCompat.getColor(context, android.R.color.white)
+    val roomTitles = roomNames
+        .map { roomName ->
+            async { TextView(context).apply {
+                layoutParams = params
+                maxLines = 1
+                ellipsize = TruncateAt.END
+                updatePadding(right = paddingRight)
+                gravity = CENTER
+                typeface = roomTitleTypeFace
+                text = roomName
+                setTextColor(titleTextColor)
+                contentDescription = getString(R.string.session_list_item_room_content_description, roomName)
+                textSize = titleTextSize
+            } }
+        }
+        .awaitAll()
+
+    x.await()
+    withContext(Dispatchers.Default) {
+        roomTitles
+            .forEach { roomTitlesRowLayout.addView(it)}
+    }
+}*/
     }
 
     /**
@@ -452,8 +520,9 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         val context = requireContext()
         when (menuItemIndex) {
             CONTEXT_MENU_ITEM_ID_FAVORITES -> {
+                //TODO, auch bei set alarm
                 session.highlight = !session.highlight
-                viewModel.updateFavorStatus(session)
+                viewModel.updateFavorStatus(session) //TODO Das ist die Problemzeile
                 sessionViewDrawer.setSessionBackground(session, contextMenuView)
                 SessionViewDrawer.setSessionTextColor(session, contextMenuView)
                 updateMenuItems()

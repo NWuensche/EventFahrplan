@@ -426,11 +426,17 @@ object AppRepository {
      * Load all sessions for the currently configured day from the database which have not been
      * canceled and returns them as [ScheduleData]. The contained list of sessions might be empty.
      */
+    //TODO Inside here
+    var x: ScheduleData? = null
     @WorkerThread
     fun loadUncanceledSessionsForDayIndex(): ScheduleData {
-        val dayIndex = readDisplayDayIndex()
-        val sessions = loadUncanceledSessionsForDayIndex(dayIndex)
-        return sessionsTransformer.transformSessions(dayIndex, sessions)
+        val dayIndex = readDisplayDayIndex() //TODO No
+        val sessions = loadUncanceledSessionsForDayIndex(dayIndex) //TODO No
+       /* return if (x != null) x!! else {
+            x = sessionsTransformer.transformSessions(dayIndex, sessions)
+            return x!!
+        }*/
+        return sessionsTransformer.transformSessions(dayIndex, sessions) //TODO No?
     }
 
     /**
@@ -550,7 +556,7 @@ object AppRepository {
         highlightsDatabaseRepository.update(values, session.sessionId)
         refreshStarredSessions()
         refreshSelectedSession()
-        refreshUncanceledSessions()
+        refreshUncanceledSessions() //TODO Die Zeile
     }
 
     @WorkerThread
