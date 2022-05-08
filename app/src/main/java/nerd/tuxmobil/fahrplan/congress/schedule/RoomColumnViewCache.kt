@@ -59,7 +59,7 @@ internal class RoomColumnViewCache(private val fragment: FahrplanFragment): IRoo
             RoomColumnView(it)
         }
     }
-    
+
     inner class RoomColumnView(val rv: RecyclerView) {
 
         /**

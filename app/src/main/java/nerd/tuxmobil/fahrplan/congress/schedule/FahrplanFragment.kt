@@ -33,9 +33,6 @@ import androidx.core.widget.NestedScrollView.OnScrollChangeListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.LayoutParams
 import info.metadude.android.eventfahrplan.commons.logging.Logging
 import info.metadude.android.eventfahrplan.commons.temporal.Moment
 import nerd.tuxmobil.fahrplan.congress.BuildConfig
@@ -101,6 +98,8 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
     private var onSessionClickListener: OnSessionClickListener? = null
     private var lastSelectedSession: Session? = null
     private var displayDensityScale = 0f
+
+    private val roomUICache: IRoomColumnViewCache by lazy { RoomColumnViewCache(this) }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -252,33 +251,30 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         scheduleData: ScheduleData
     ) {
         val columnsLayout = horizontalScroller.getChildAt(0) as LinearLayout
-        // TODO Optimization: Track room names and check if they can be re-used with the updated scheduleData
+
         columnsLayout.removeAllViews()
-        val boxHeight = getNormalizedBoxHeight()
-        val layoutCalculator = LayoutCalculator(boxHeight)
-        val context = horizontalScroller.context
         val roomDataList = scheduleData.roomDataList
         val conference = Conference.ofSessions(scheduleData.allSessions)
-        for (roomIndex in roomDataList.indices) {
-            val roomData = roomDataList[roomIndex]
-            val layoutParamsBySession = layoutCalculator.calculateLayoutParams(roomData, conference)
-            val columnRecyclerView = RecyclerView(context).apply {
-                setHasFixedSize(true)
-                setFadingEdgeLength(0)
-                isNestedScrollingEnabled = false // enables flinging
-                layoutManager = LinearLayoutManager(context)
-                layoutParams = LayoutParams(columnWidth, WRAP_CONTENT)
-            }
-            val roomSessions = roomData.sessions
-            val adapter = SessionViewColumnAdapter(
-                sessions = roomSessions,
-                layoutParamsBySession = layoutParamsBySession,
-                drawer = sessionViewDrawer,
-                eventsHandler = this
+
+        for (roomData in roomDataList) {
+            val columnRoomView = roomUICache.getOrCreateRoomColumnView(
+                roomName = roomData.roomName,
+                columnWidth = columnWidth,
             )
-            columnRecyclerView.adapter = adapter
-            columnsLayout.addView(columnRecyclerView)
+
+            columnRoomView.updateData(
+                roomData,
+                conference,
+                sessionViewDrawer
+            )
+
+            columnsLayout.addView(columnRoomView)
         }
+
+    }
+
+    private fun LinearLayout.addView(columnRoomView: RoomColumnViewCache.RoomColumnView) {
+        addView(columnRoomView.rv)
     }
 
     /**
@@ -387,7 +383,7 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
             return (factor * displayDensityScale).toInt()
         }
 
-    private fun getNormalizedBoxHeight(): Int {
+    fun getNormalizedBoxHeight(): Int {
         return (resources.getInteger(R.integer.box_height) * displayDensityScale).toInt()
     }
 
