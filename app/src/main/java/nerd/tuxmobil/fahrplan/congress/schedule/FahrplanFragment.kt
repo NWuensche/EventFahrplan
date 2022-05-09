@@ -99,7 +99,11 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
     private var lastSelectedSession: Session? = null
     private var displayDensityScale = 0f
 
-    private val roomUICache: IRoomColumnViewCache by lazy { RoomColumnViewCache(this) }
+    private val roomUiCache: IRoomColumnViewCache by lazy { RoomColumnViewCache(
+        context = requireContext(),
+        eventsHandler = this,
+        onGetNormalizedBoxHeight = { getNormalizedBoxHeight() }
+    ) }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -257,24 +261,20 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         val conference = Conference.ofSessions(scheduleData.allSessions)
 
         for (roomData in roomDataList) {
-            val columnRoomView = roomUICache.getOrCreateRoomColumnView(
+            val roomColumnView = roomUiCache.getOrCreateRoomColumnView(
                 roomName = roomData.roomName,
                 columnWidth = columnWidth,
             )
 
-            columnRoomView.updateData(
+            roomColumnView.updateData(
                 roomData,
                 conference,
                 sessionViewDrawer
             )
 
-            columnsLayout.addView(columnRoomView)
+            columnsLayout.addView(roomColumnView.recyclerView)
         }
 
-    }
-
-    private fun LinearLayout.addView(columnRoomView: RoomColumnViewCache.RoomColumnView) {
-        addView(columnRoomView.rv)
     }
 
     /**
@@ -383,7 +383,7 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
             return (factor * displayDensityScale).toInt()
         }
 
-    fun getNormalizedBoxHeight(): Int {
+    private fun getNormalizedBoxHeight(): Int {
         return (resources.getInteger(R.integer.box_height) * displayDensityScale).toInt()
     }
 
