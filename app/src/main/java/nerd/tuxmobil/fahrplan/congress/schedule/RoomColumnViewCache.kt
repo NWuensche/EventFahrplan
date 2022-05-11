@@ -8,13 +8,11 @@ import androidx.recyclerview.widget.RecyclerView.LayoutParams
 import nerd.tuxmobil.fahrplan.congress.models.RoomData
 import nerd.tuxmobil.fahrplan.congress.schedule.RoomColumnViewCache.RoomColumnView
 
-internal interface IRoomColumnViewCache {
-
+internal interface RoomColumnViewProvider {
     /**
-     * Look for a [RoomColumnView] for the room with the name [roomName].
-     * If such a view does not exist, create one.
+     * Get the [RoomColumnView] for the given [roomName]
      */
-    fun getOrCreateRoomColumnView(
+    fun get(
         roomName: String,
         columnWidth: Int
     ): RoomColumnViewCache.RoomColumnView
@@ -27,13 +25,17 @@ internal class RoomColumnViewCache(
     private val context: Context,
     private val eventsHandler: SessionViewEventsHandler,
     onGetNormalizedBoxHeight: () -> Int
-): IRoomColumnViewCache {
+): RoomColumnViewProvider {
 
     private val roomColumnViewByRoomName: MutableMap<String, RoomColumnView> = mutableMapOf()
 
     private val layoutCalculator = LayoutCalculator(onGetNormalizedBoxHeight())
 
-    override fun getOrCreateRoomColumnView(
+    /**
+     * Look for a [RoomColumnView] for the room with the name [roomName].
+     * If such a view does not exist, create one.
+     */
+    override fun get(
         roomName: String,
         columnWidth: Int,
     ): RoomColumnView {

@@ -99,7 +99,7 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
     private var lastSelectedSession: Session? = null
     private var displayDensityScale = 0f
 
-    private val roomUiCache: IRoomColumnViewCache by lazy { RoomColumnViewCache(
+    private val roomColumnViewProvider: RoomColumnViewProvider by lazy { RoomColumnViewCache(
         context = requireContext(),
         eventsHandler = this,
         onGetNormalizedBoxHeight = { getNormalizedBoxHeight() }
@@ -261,7 +261,7 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
         val conference = Conference.ofSessions(scheduleData.allSessions)
 
         for (roomData in roomDataList) {
-            val roomColumnView = roomUiCache.getOrCreateRoomColumnView(
+            val roomColumnView = roomColumnViewProvider.get(
                 roomName = roomData.roomName,
                 columnWidth = columnWidth,
             )
