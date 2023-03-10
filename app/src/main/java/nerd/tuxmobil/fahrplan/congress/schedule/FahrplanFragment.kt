@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils.TruncateAt
+import android.util.Log
 import android.view.ContextMenu
 import android.view.ContextMenu.ContextMenuInfo
 import android.view.Gravity.CENTER
@@ -35,6 +36,10 @@ import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.ViewModelProvider
 import info.metadude.android.eventfahrplan.commons.logging.Logging
 import info.metadude.android.eventfahrplan.commons.temporal.Moment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import nerd.tuxmobil.fahrplan.congress.BuildConfig
 import nerd.tuxmobil.fahrplan.congress.R
 import nerd.tuxmobil.fahrplan.congress.alarms.AlarmServices
@@ -256,24 +261,39 @@ class FahrplanFragment : Fragment(), SessionViewEventsHandler {
     ) {
         val columnsLayout = horizontalScroller.getChildAt(0) as LinearLayout
 
-        columnsLayout.removeAllViews()
-        val roomDataList = scheduleData.roomDataList
-        val conference = Conference.ofSessions(scheduleData.allSessions)
+        Log.e("LOL", "LOL")
+        runBlocking {
+            launch { columnsLayout.removeAllViews() }
+            val roomDataList = scheduleData.roomDataList
+            val conference = Conference.ofSessions(scheduleData.allSessions)
 
-        for (roomData in roomDataList) {
-            val roomColumnView = roomColumnViewProvider.get(
-                roomName = roomData.roomName,
-                columnWidth = columnWidth,
-            )
 
-            roomColumnView.updateData(
-                roomData,
-                conference,
-                sessionViewDrawer
-            )
+            for (roomData in roomDataList) {
+                launch {
+                    val roomColumnView = withContext(Dispatchers.Default) {
+                        val roomColumnView = roomColumnViewProvider.get(
+                            roomName = roomData.roomName,
+                            columnWidth = columnWidth,
+                        )
 
-            columnsLayout.addView(roomColumnView.recyclerView)
+                        roomColumnView.updateData(
+                            roomData,
+                            conference,
+                            sessionViewDrawer
+                        )
+
+
+
+                        roomColumnView
+                    }
+
+
+                    columnsLayout.addView(roomColumnView.recyclerView)
+                }
+            }
         }
+
+
 
     }
 
